@@ -1,0 +1,118 @@
+% =====================================================================
+% COMP-SCI 5567 project report. Requirements: >= 4 pages, letter paper,
+% font size <= 11pt, sections: Abstract, Introduction, Methodology,
+% Challenges, Self-evaluation, Citations.
+%
+% How to use on Overleaf:
+%   1. Upload the whole report/ folder.
+%   2. After notebook 05, copy results/tables/*.tex into report/tables/
+%      and results/figures/* into report/figures/ (same file names).
+%   3. Replace every \todo{...} with real numbers / text.
+% =====================================================================
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx,booktabs,amsmath,amssymb,hyperref,xcolor,caption}
+\usepackage[numbers]{natbib}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+% Include a figure only if it exists, so the draft compiles before results are in
+\newcommand{\fig}[3]{\begin{figure}[h]\centering
+  \IfFileExists{figures/#1}{\includegraphics[width=#2\linewidth]{figures/#1}}
+  {\fbox{\parbox{#2\linewidth}{\centering\vspace{1cm}\texttt{\detokenize{figures/#1}} missing\vspace{1cm}}}}
+  \caption{#3}\label{fig:#1}\end{figure}}
+
+\title{Pedestrian Multi-Object Tracking on MOT16 with a Fine-Tuned Faster R-CNN and a Siamese Re-Identification Network}
+\author{\todo{Team member names} \\ University of Missouri--Kansas City \\ COMP-SCI 5567 Deep Learning}
+\date{\todo{Month} 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Multi-object tracking (MOT) asks a system to find every person in a video and to keep a consistent identity for each of them over time. We build an offline tracking-by-detection pipeline for the MOT16 benchmark. Pedestrians are detected by a Faster R-CNN that we fine-tune from COCO weights with a frozen backbone, which raises AP@0.5 on a held-out sequence from \todo{X} to \todo{Y}. Each detection is embedded by a Siamese ResNet-18 trained with batch-hard triplet loss, reaching \todo{Z} rank-1 accuracy on identities never seen during training. Detections are linked by a tracker that combines a Kalman motion model, gated Hungarian matching on appearance and overlap, a second association pass on low-confidence boxes and offline gap interpolation. An ablation study on MOT16-09 shows that these components raise IDF1 from \todo{A} to \todo{B} and reduce identity switches from \todo{C} to \todo{D}. The full system runs at \todo{F} frames per second on a free Colab T4 GPU and tracks the selected target pedestrian in MOT16-01 \todo{without losing its identity}.
+\end{abstract}
+
+\section{Introduction}
+Video object tracking is a core building block for systems that have to understand how people move: autonomous vehicles must anticipate where pedestrians will step next, surveillance systems need to follow a person across a crowded scene, and sports and retail analytics rely on trajectories rather than single snapshots. A detector alone answers \emph{where} the people are in each frame; tracking additionally answers \emph{who is who}, so that the same person keeps the same identity over time. This second question is the hard part. In crowded streets people occlude each other, change their pose and apparent size, and often wear similar clothes, so a naive frame-to-frame association quickly swaps identities.
+
+We follow the tracking-by-detection paradigm on MOT16~\cite{milan2016mot16}, a standard benchmark of crowded street scenes. Our system has three learned or designed parts: (i) a Faster R-CNN detector~\cite{ren2015faster} adapted to pedestrians by transfer learning, (ii) a Siamese re-identification (Re-ID) network trained with triplet loss~\cite{schroff2015facenet,hermans2017triplet} that measures how similar two person crops look, and (iii) an offline tracker in the spirit of SORT and DeepSORT~\cite{bewley2016sort,wojke2017deepsort} that fuses motion and appearance. Because the Re-ID network learns a distance rather than a fixed set of classes, it generalises to people it has never seen and does not need re-training when new people enter the scene.
+
+Our contributions are: a complete, reproducible pipeline that fits on a free Colab GPU; an evaluation protocol that keeps one labelled sequence (MOT16-09) completely unseen by all trained components; and an ablation study quantifying the contribution of each tracking component.
+
+\section{Methodology}
+\subsection{System design}
+\todo{Optional: add a pipeline diagram figure here.} For every frame the detector proposes pedestrian boxes with confidence scores; the Re-ID network maps each box crop to a 128-dimensional embedding; the tracker associates boxes with existing tracks. Because the task is offline video analysis, we process the whole sequence before producing the final trajectories, which allows post-processing that an online tracker could not do.
+
+\paragraph{Data.} MOT16 contains 7 training sequences with ground truth and 7 test sequences without. We keep pedestrians (class~1) marked for evaluation, and treat static people, reflections and distractors as ``don't care'' regions, following the official protocol. We split by \emph{sequence}: MOT16-02, 04, 05, 10, 11 and 13 are used for training, MOT16-09 is held out for validation, and MOT16-01 is the submitted test video. Splitting by sequence instead of by random frames prevents near-duplicate neighbouring frames from leaking into the validation set. Dataset statistics are listed in \todo{Table/appendix from dataset\_stats.csv}.
+
+\subsection{Pedestrian detection with Faster R-CNN}
+Faster R-CNN~\cite{ren2015faster} improves on R-CNN~\cite{girshick2014rcnn} and Fast R-CNN~\cite{girshick2015fast} by sharing one convolutional feature map between a Region Proposal Network and the detection head, which makes it roughly two orders of magnitude faster than R-CNN at similar accuracy. We use the torchvision implementation with a ResNet-50~\cite{he2016resnet} backbone and a Feature Pyramid Network~\cite{lin2017fpn} (v2 weights), pretrained on COCO. We replace the 91-class box predictor with a 2-class predictor (background, pedestrian) and freeze the backbone, so only the RPN and the RoI heads (\todo{16.4}M of \todo{43.3}M parameters) are trained. This few-shot fine-tuning is a form of transfer learning: features learned on a large dataset are reused, and only the task-specific layers adapt to MOT16.
+
+\paragraph{Augmentation.} Each training frame is randomly flipped horizontally (with its boxes), colour-jittered (brightness, contrast, saturation $\pm50\%$) and, with probability 0.3, Gaussian-blurred, to mimic different cameras, lighting and motion blur.
+
+\subsection{Re-identification with a Siamese network}
+The Re-ID network $f(\cdot)$ is applied with shared weights to every crop (a Siamese architecture~\cite{taigman2014deepface}). It consists of an ImageNet-pretrained ResNet-18 whose last stage uses stride~1 (keeping an $8\times4$ feature map for $128\times64$ inputs), global average pooling, a linear layer to 128 dimensions with batch normalisation, and $L_2$ normalisation. We train it with the batch-hard triplet loss~\cite{hermans2017triplet}:
+\begin{equation}
+\mathcal{L} = \frac{1}{N}\sum_{a}\Big[\max_{p\in P(a)}\|f(x_a)-f(x_p)\|_2 - \min_{n\in N(a)}\|f(x_a)-f(x_n)\|_2 + \alpha\Big]_+ ,
+\end{equation}
+where $P(a)$ and $N(a)$ are the crops in the batch of the same and of different identities, and $\alpha=0.3$. Each batch contains $P=16$ identities with $K=4$ crops each. Training crops are cut from the ground truth of the six training sequences (every third frame, visibility $\ge 0.5$, height $\ge 50$\,px) and augmented with flips, random crops, colour jitter and random erasing~\cite{zhong2020erasing}, which imitates partial occlusion.
+
+\subsection{Tracker}
+Each track keeps a Kalman filter~\cite{kalman1960} over $(c_x, c_y, w/h, h)$ and their velocities with a constant-velocity model, and a memory of up to 30 recent appearance embeddings. For every frame:
+\begin{enumerate}
+\item All tracks are propagated by the Kalman filter.
+\item \textbf{First association} between tracks and detections with score $\ge 0.6$. The cost is $C = \lambda\, d_{\text{app}} + (1-\lambda)(1-\text{IoU})$ with $\lambda=0.6$, where $d_{\text{app}}$ is the smallest cosine distance between the detection embedding and the track's stored embeddings. A pair is admissible only if the detection centre lies within a gate proportional to the track height (which grows slowly while a track is missing), and either $d_{\text{app}}$ is below a threshold set from the Re-ID validation or the IoU exceeds 0.5. The assignment is solved globally with the Hungarian algorithm~\cite{kuhn1955hungarian}.
+\item \textbf{Second association} (inspired by ByteTrack~\cite{zhang2022bytetrack}): tracks that were visible in the previous frame but are still unmatched are matched by IoU $\ge0.5$ to detections with score in $[0.3, 0.6)$. These are typically partly occluded people.
+\item Unmatched confident detections start tentative tracks, which are confirmed after 3 hits; confirmed tracks are deleted after 60 frames without a match.
+\end{enumerate}
+\paragraph{Offline post-processing.} After the whole sequence is processed, confirmed tracks also keep their first, pre-confirmation frames, gaps of up to 40 frames inside a track are filled by linear interpolation, and tracks shorter than 8 frames are discarded as noise.
+
+\subsection{Implementation details}
+All code is written in PyTorch~\cite{paszke2019pytorch} and runs on a free Google Colab T4 GPU. The detector is trained for \todo{4} epochs with SGD (learning rate 0.005, momentum 0.9, weight decay $5\cdot10^{-4}$, 300 warm-up steps, cosine decay), batch size 4, mixed precision, on every second frame of the training sequences. The Re-ID network is trained for 25 epochs of 200 batches with Adam (learning rate $3\cdot10^{-4}$, cosine schedule). Detection and Re-ID outputs are cached once per sequence so that all tracking experiments run in seconds. Tracking accuracy is measured with MOTA~\cite{bernardin2008clear}, IDF1~\cite{ristani2016idf1}, identity switches (IDSW), and mostly tracked / mostly lost trajectories, computed by our own implementation of the official definitions (including removal of predictions on ``don't care'' regions); values may differ marginally from the official devkit.
+
+\section{Challenges and How We Solved Them}
+\todo{Edit these to match what actually happened in your group.}
+\begin{description}
+\item[Identity switches in crowds.] Our first prototype matched each detection greedily to the most similar track using appearance only. In the MOT16-01 video this made IDs jump across the frame to similarly dressed people and fragmented trajectories (over 40 IDs for about 20 people within 8 seconds). We replaced greedy matching with Hungarian assignment, added a Kalman motion model and a spatial gate, and combined appearance with IoU in the cost.
+\item[Optimistic validation.] Splitting frames of one sequence randomly into train and validation gave misleadingly good numbers because neighbouring frames are nearly identical, and the first Re-ID validation reused the training identities. We moved to a sequence-level split (MOT16-09 held out for everything) and evaluate Re-ID only on unseen identities.
+\item[Weak appearance model.] A small three-layer CNN trained on 38 identities from one sequence did not generalise. We switched to an ImageNet-pretrained ResNet-18 trained with batch-hard triplet loss on all training sequences.
+\item[Occlusions.] People hidden behind others lose their detections or get low scores. The low-confidence second association, a longer track memory (60 frames) and offline interpolation bridge these gaps.
+\item[Limited compute.] Free Colab sessions disconnect and have limited GPU memory. We freeze the detector backbone, train with mixed precision, checkpoint every epoch with automatic resume, read frames from the local disk instead of Google Drive, and cache detections so tracking experiments do not need the GPU.
+\item[Reproducibility.] The prototype notebook only ran when cells were executed in a particular order. We moved all logic into a small Python package (\texttt{src/}) shared by five notebooks that run top to bottom.
+\end{description}
+
+\section{Self-Evaluation}
+\subsection{Detection}
+\input{tables/detector}
+\todo{One paragraph interpreting the detector table and the PR curve.}
+\fig{detector_pr_curve.png}{0.55}{Precision--recall curves on MOT16-09 before and after fine-tuning.}
+
+\subsection{Re-identification}
+\input{tables/reid}
+\todo{Interpret: gain of triplet training over ImageNet features; the distance histogram and the chosen threshold.}
+\fig{reid_distance_hist.png}{0.6}{Embedding distances of same-person and different-person pairs on unseen identities.}
+
+\subsection{Tracking and ablation}
+\input{tables/ablation}
+\todo{Walk through rows A--E: which component removes most ID switches, which raises MOTA, etc.}
+\input{tables/tracking_by_detector}
+\fig{per_person.png}{0.85}{Per-person coverage and number of assigned IDs on MOT16-09.}
+\todo{Report: N of M long-lived people tracked perfectly (single ID, $\ge$90\% coverage).}
+
+\subsection{Final result on MOT16-01}
+\fig{target_filmstrip.jpg}{0.95}{The selected target pedestrian (ID \todo{k}) at evenly spaced moments of MOT16-01.}
+\todo{Describe the target: frames visible, whether the ID is kept throughout, link to video.}
+Video: \url{\todo{link}}.
+
+\subsection{Speed}
+\input{tables/speed}
+\todo{Comment on the bottleneck (detector) and on real-time feasibility.}
+
+\subsection{Limitations and grade self-assessment}
+\todo{Honest limitations (e.g. moving-camera sequences, long full occlusions, metrics computed with our own implementation). Self-assessed grade against the rubric with justification.}
+
+\section{Conclusion}
+\todo{Two to three sentences.}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+\end{document}

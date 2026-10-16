@@ -1,0 +1,3 @@
+Detector (full tracker),MOTA,IDF1,IDSW,MT,ML,FP,FN,pred_IDs
+COCO pretrained detector,51.1,54.2,37,13,0,1185,1347,68
+Fine-tuned detector (ours),55.8,60.3,35,14,0,1073,1214,49

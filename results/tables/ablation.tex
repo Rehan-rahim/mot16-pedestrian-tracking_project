@@ -1,0 +1,15 @@
+\begin{table}[h]
+\caption{Ablation study on MOT16-09.}
+\label{tab:ablation}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Configuration & MOTA & IDF1 & IDSW & MT & ML & FP & FN & pred_IDs \\
+\midrule
+A  IoU only & 56.3 & 47.7 & 71 & 14 & 0 & 930 & 1295 & 42 \\
+B  + Kalman filter & 57.6 & 56.2 & 43 & 14 & 0 & 895 & 1290 & 37 \\
+C  + Siamese Re-ID & 57.4 & 62.2 & 34 & 13 & 0 & 919 & 1288 & 43 \\
+D  + low-score 2nd pass & 56.0 & 60.2 & 38 & 13 & 0 & 998 & 1275 & 47 \\
+E  + exit rule + gap fill (full) & 55.8 & 60.3 & 35 & 14 & 0 & 1073 & 1214 & 49 \\
+\bottomrule
+\end{tabular}
+\end{table}

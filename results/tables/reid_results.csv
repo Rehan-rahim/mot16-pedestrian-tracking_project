@@ -1,0 +1,3 @@
+Model,Rank-1,mAP,AUC,Pair accuracy
+"ResNet-18, ImageNet only (no Re-ID training)",0.812,0.49,0.86,0.789
+Siamese ResNet-18 + triplet loss (ours),0.914,0.728,0.947,0.895

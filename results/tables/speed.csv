@@ -1,0 +1,5 @@
+Stage,ms / frame,FPS
+Faster R-CNN detection,104.17,9.6
+Siamese Re-ID (all boxes in a frame),10.41,96.02
+Tracker (Kalman + Hungarian),2.39,418.47
+Total pipeline,116.97,8.55

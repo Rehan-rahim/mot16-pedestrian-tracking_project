@@ -1,0 +1,8 @@
+{
+  "rank1": 0.9136302294197031,
+  "mAP": 0.7281562837922092,
+  "AUC": 0.9468348,
+  "best_acc": 0.8949,
+  "best_threshold": 0.79,
+  "tracker_app_thresh_cosine": 0.312
+}

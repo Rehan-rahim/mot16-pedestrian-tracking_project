@@ -1,0 +1,10 @@
+# Everything is preinstalled on Google Colab. Listed for running elsewhere.
+torch>=2.1
+torchvision>=0.16
+opencv-python
+numpy
+scipy
+pandas
+matplotlib
+jinja2      # pandas .to_latex()
+# plus the ffmpeg system package (preinstalled on Colab) for writing videos

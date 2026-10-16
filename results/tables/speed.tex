@@ -1,0 +1,14 @@
+\begin{table}[h]
+\caption{Runtime per stage on a Colab T4 GPU.}
+\label{tab:speed}
+\begin{tabular}{lrr}
+\toprule
+Stage & ms / frame & FPS \\
+\midrule
+Faster R-CNN detection & 104.2 & 9.6 \\
+Siamese Re-ID (all boxes in a frame) & 10.4 & 96.0 \\
+Tracker (Kalman + Hungarian) & 2.4 & 418.5 \\
+Total pipeline & 117.0 & 8.6 \\
+\bottomrule
+\end{tabular}
+\end{table}

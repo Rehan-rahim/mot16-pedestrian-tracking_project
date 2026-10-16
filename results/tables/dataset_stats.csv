@@ -1,0 +1,8 @@
+sequence,frames,resolution,fps,identities,boxes,boxes_per_frame,role
+MOT16-02,600,1920x1080,30,54,17833,29.7,training
+MOT16-04,1050,1920x1080,30,83,47557,45.3,training
+MOT16-05,837,640x480,14,125,6818,8.1,training
+MOT16-09,525,1920x1080,30,25,5257,10.0,validation
+MOT16-10,654,1920x1080,30,54,12318,18.8,training
+MOT16-11,900,1920x1080,30,69,9174,10.2,training
+MOT16-13,750,1920x1080,25,107,11450,15.3,training

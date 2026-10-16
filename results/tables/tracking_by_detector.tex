@@ -1,0 +1,12 @@
+\begin{table}[h]
+\caption{Effect of detector fine-tuning on tracking.}
+\label{tab:detector_tracking}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Detector (full tracker) & MOTA & IDF1 & IDSW & MT & ML & FP & FN & pred_IDs \\
+\midrule
+COCO pretrained detector & 51.1 & 54.2 & 37 & 13 & 0 & 1185 & 1347 & 68 \\
+Fine-tuned detector (ours) & 55.8 & 60.3 & 35 & 14 & 0 & 1073 & 1214 & 49 \\
+\bottomrule
+\end{tabular}
+\end{table}
